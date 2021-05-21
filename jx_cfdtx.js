@@ -1,6 +1,6 @@
 /**
 *
-  Name:财富岛提现 (修改自https://raw.githubusercontent.com/pxylen/dog_jd/master/jx_cfdtx.js)
+  Name:财富岛提现 (修改自https://raw.githubusercontent.com/pxylen/dog_jd/master/jx_cfdtx.js，cron设置建议为 59 59 23 * * * )
   Address: 京喜App ====>>>> 全民赚大钱
 
  * 获取京喜tokens方式
@@ -45,19 +45,12 @@ let concurrency = 9 // 并发数
   if (!getTokens()) return;
   let execAcList = getExecAcList()
   let msgInfo = []
-  let retry = false;
-  do {
     for (let arr of execAcList) {
       let allAc = arr.map(ac => ac.no).join(', ')
       $.log(`\n=======================================\n开始【${$.name}账号：${allAc}】`)
       let rtList = await Promise.all(arr.map((ac, i) => cashOut(ac, i)))
       msgInfo.push(rtList.map(ac => `【账号${ac.no}】${ac.tk['pin']||''}${ac.result?'\n\t'+ac.result:''}`).join('\n\n'))
     }
-    retry = ['23:59:59','00:00:00'].includes($.time('HH:mm:ss'))
-    if (retry) {
-      await $.wait(100)
-    }
-  } while(retry);
   if (msgInfo.length <= 0) {
     msgInfo.push(`暂无京喜token数据，请抓取后再试`)
   }
@@ -101,14 +94,15 @@ function getExecAcList() {
 
 function cashOut(ac, i) {
   return new Promise(async (resolve) => {
-    await $.wait(i * 30)
-    $.get(
-      taskUrl(
-        `consume/CashOut`,
-        `ddwMoney=100&dwIsCreateToken=0&ddwMinPaperMoney=150000&strPgtimestamp=${ac.tk['timestamp']}&strPhoneID=${ac.tk['phoneid']}&strPgUUNum=${ac.tk['farm_jstoken']}`,
-        ac.ck
-      ),
-      async (err, resp, data) => {
+    let opts = taskUrl(`consume/CashOut`, `ddwMoney=100&dwIsCreateToken=0&ddwMinPaperMoney=150000&strPgtimestamp=${ac.tk['timestamp']}&strPhoneID=${ac.tk['phoneid']}&strPgUUNum=${ac.tk['farm_jstoken']}`, ac.ck);
+    let now = new Date()
+    $.log(`账号 ${ac.no} 开始时间：${$.time('yyyy-MM-dd HH:mm:ss')}.${now.getMilliseconds()}`)
+    if (now.getSeconds() == 59) {
+      await $.wait(1000 - now.getMilliseconds())
+    } else if (now.getSeconds() == 58) {
+      await $.wait(2000 - now.getMilliseconds())
+    }
+    $.get(opts, async (err, resp, data) => {
         try {
           if (err) {
             $.logErr(`❌ 账号${ac.no} API请求失败，请检查网络后重试\n data: ${JSON.stringify(err, null, 2)}`);
